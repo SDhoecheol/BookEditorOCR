@@ -1,0 +1,6 @@
+{
+  "latest_version": "1.1.0",
+  "release_date": "2026-10-13",
+  "changelog": "1. Google Gemini Flash-Lite 최신 정식 AI 엔진 탑재 (503 High Demand 오류 완벽 해결)\n2. 일일 500~1,500회 대용량 쿼터 보장\n3. 프로그램 실행 시 자동 업데이트 감지 및 원클릭 자동 덮어쓰기 패처(Auto-Patcher) 탑재\n4. 업데이트 이후에도 기존 사내 인증 100% 안전 유지",
+  "download_url": "https://github.com/SDhoecheol/BookEditorOCR/releases/download/v1.1.0/Sonamu_BookEditorOCR_배포용.zip"
+}

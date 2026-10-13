@@ -1,0 +1,4 @@
+{
+  "update_check_url": "https://raw.githubusercontent.com/SDhoecheol/BookEditorOCR/main/version.json",
+  "auto_check_on_startup": true
+}

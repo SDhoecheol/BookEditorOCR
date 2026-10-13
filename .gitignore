@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+build/
+dist/
+build_pyd/
+staging_pyd/
+*.zip
+*.log
+api_keys.json
