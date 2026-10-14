@@ -92,18 +92,38 @@ class BookEditorOCRApp:
             self.root.geometry(f"{win_w}x{win_h}")
 
     def _apply_native_taskbar_icon(self, exe_dir: str):
-        # 1. Tkinter iconphoto (256px 고화질 PNG 기반)
-        icon_png = os.path.join(exe_dir, "app_icon.png")
-        if os.path.exists(icon_png):
+        bundle_dir = getattr(sys, "_MEIPASS", exe_dir)
+        search_dirs = [bundle_dir, exe_dir, os.getcwd()]
+
+        icon_ico = None
+        icon_png = None
+        for d in search_dirs:
+            cand_ico = os.path.join(d, "app_icon.ico")
+            if not icon_ico and os.path.exists(cand_ico):
+                icon_ico = cand_ico
+            cand_png = os.path.join(d, "app_icon.png")
+            if not icon_png and os.path.exists(cand_png):
+                icon_png = cand_png
+
+        # 1. Tkinter iconbitmap (.ico) & iconphoto (.png)
+        if icon_ico:
+            try:
+                self.root.iconbitmap(default=icon_ico)
+            except Exception:
+                try:
+                    self.root.iconbitmap(icon_ico)
+                except Exception:
+                    pass
+
+        if icon_png:
             try:
                 self._icon_img = tk.PhotoImage(file=icon_png)
                 self.root.iconphoto(True, self._icon_img)
             except Exception:
                 pass
 
-        # 2. Windows 11 Native Win32 WM_SETICON (작업표시줄 48px/32px 직접 주입)
-        icon_ico = os.path.join(exe_dir, "app_icon.ico")
-        if os.path.exists(icon_ico):
+        # 2. Windows 11 Native Win32 WM_SETICON (작업표시줄 및 창 핸들 직접 주입)
+        if icon_ico:
             try:
                 user32 = ctypes.windll.user32
                 LR_LOADFROMFILE = 0x00000010
@@ -480,9 +500,11 @@ class BookEditorOCRApp:
     def _create_tray_image(self):
         try:
             exe_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(__file__)
-            icon_path = os.path.join(exe_dir, "app_icon.png")
-            if os.path.exists(icon_path):
-                return Image.open(icon_path).resize((64, 64), Image.Resampling.LANCZOS)
+            bundle_dir = getattr(sys, "_MEIPASS", exe_dir)
+            for d in [bundle_dir, exe_dir, os.getcwd()]:
+                cand = os.path.join(d, "app_icon.png")
+                if os.path.exists(cand):
+                    return Image.open(cand).resize((64, 64), Image.Resampling.LANCZOS)
         except Exception:
             pass
         width = 64
