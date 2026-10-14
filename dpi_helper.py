@@ -88,7 +88,11 @@ class DPIHelper:
             new_scale = cls.FONT_SCALES[idx - 1]
             cls.set_user_font_scale(new_scale)
             return new_scale
-        return current
+    @classmethod
+    def reset_font_scale(cls) -> float:
+        """폰트 배율 기본값(1.0)으로 초기화"""
+        cls.set_user_font_scale(1.0)
+        return 1.0
 
     @classmethod
     def get_font_scale_percent(cls) -> int:

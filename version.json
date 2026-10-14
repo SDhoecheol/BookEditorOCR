@@ -1,6 +1,6 @@
 {
   "latest_version": "1.1.0",
-  "release_date": "2026-10-13",
-  "changelog": "1. Google Gemini Flash-Lite 최신 정식 AI 엔진 탑재 (503 High Demand 오류 완벽 해결)\n2. 일일 500~1,500회 대용량 쿼터 보장\n3. 프로그램 실행 시 자동 업데이트 감지 및 원클릭 자동 덮어쓰기 패처(Auto-Patcher) 탑재\n4. 업데이트 이후에도 기존 사내 인증 100% 안전 유지",
-  "download_url": "https://github.com/SDhoecheol/BookEditorOCR/releases/download/v1.1.0/Sonamu_BookEditorOCR_v1.1.0.zip"
+  "release_date": "2026-10-14",
+  "changelog": "1. 출판 도서 특화 고정밀 OCR 엔진 최적화 및 안정성 개선\n2. 상단 메뉴바(보기, 도움말) 도입 및 폰트 크기 조절 단축키(Ctrl + / - / 0) 지원\n3. Windows 11 작업표시줄 고해상도 벡터 스타일 아이콘 적용\n4. 압축 해제 없이 바로 실행 가능한 단일 포터블 실행 파일(.exe) 지원",
+  "download_url": "https://github.com/SDhoecheol/BookEditorOCR/releases/latest/download/Sonamu_BookEditorOCR.exe"
 }

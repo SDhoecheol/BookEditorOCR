@@ -94,7 +94,7 @@ class AutoUpdater:
                 if not silent and parent:
                     parent.after(0, lambda: messagebox.showinfo(
                         "업데이트 확인",
-                        f"현재 최신 버전(v{CURRENT_VERSION})을 사용 중입니다.\n\n구글 Gemini 최신 정식 AI 모델이 정상 연동되어 있습니다.",
+                        f"현재 최신 버전(v{CURRENT_VERSION})을 사용 중입니다.\n\n고정밀 OCR 엔진이 정상 연동되어 있습니다.",
                         parent=parent
                     ))
         except Exception as e:
@@ -181,7 +181,7 @@ class AutoUpdater:
         # 하단 안내 라벨
         tk.Label(
             body,
-            text="※ 업데이트 시 기존 사내 기기 인증은 100% 안전하게 유지됩니다.",
+            text="※ 업데이트 시 기존 정식 라이선스는 100% 안전하게 유지됩니다.",
             font=DPIHelper.font("Malgun Gothic", 8),
             bg="#f8f9fa",
             fg="#6c757d"
@@ -268,7 +268,10 @@ class AutoUpdater:
     def _download_worker(cls, parent, dl_dlg, prog, lbl_status, download_url: str):
         target_dir = get_app_dir()
         temp_dir = tempfile.gettempdir()
-        zip_path = os.path.join(temp_dir, "BookEditorOCR_update.zip")
+        is_exe = download_url.lower().endswith(".exe") or "/releases/download/" in download_url and download_url.lower().endswith(".exe")
+        
+        target_exe_path = sys.executable if getattr(sys, "frozen", False) else os.path.join(target_dir, "Sonamu_BookEditorOCR.exe")
+        temp_file = os.path.join(temp_dir, "Sonamu_BookEditorOCR_new.exe" if is_exe else "BookEditorOCR_update.zip")
         extracted_dir = os.path.join(temp_dir, "BookEditorOCR_extracted")
         bat_path = os.path.join(temp_dir, "patch_and_restart.bat")
 
@@ -280,7 +283,7 @@ class AutoUpdater:
             total_size = int(resp.headers.get("content-length", 0))
             downloaded = 0
 
-            with open(zip_path, "wb") as f:
+            with open(temp_file, "wb") as f:
                 for chunk in resp.iter_content(chunk_size=65536):
                     if chunk:
                         f.write(chunk)
@@ -295,20 +298,31 @@ class AutoUpdater:
                                 lbl_status.configure(text=t)
                             ))
 
-            dl_dlg.after(0, lambda: lbl_status.configure(text="다운로드 완료! 구버전 교체 및 자동 재실행을 준비합니다..."))
+            dl_dlg.after(0, lambda: lbl_status.configure(text="다운로드 완료! 최신 버전으로 교체 후 자동 재실행합니다..."))
 
-            # 패치 및 자동 재실행 배치 스크립트 생성
-            # PowerShell을 사용하여 안전하게 압축 해제 후 xcopy 덮어쓰기 수행
-            bat_content = f"""@echo off
+            if is_exe:
+                # 단일 EXE 교체 스크립트
+                bat_content = f"""@echo off
+chcp 65001 > nul
+echo 최신 버전 교체 적용 중... 잠시만 기다려 주십시오.
+timeout /t 2 /nobreak > nul
+copy /y "{temp_file}" "{target_exe_path}"
+del /f /q "{temp_file}"
+start "" "{target_exe_path}"
+del "%~f0"
+"""
+            else:
+                # ZIP 패키지 교체 스크립트
+                bat_content = f"""@echo off
 chcp 65001 > nul
 echo BookEditor OCR 업데이트 적용 중... 잠시만 기다려 주십시오.
 timeout /t 2 /nobreak > nul
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{extracted_dir}') {{ Remove-Item -Path '{extracted_dir}' -Recurse -Force }}; Expand-Archive -Path '{zip_path}' -DestinationPath '{extracted_dir}' -Force"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{extracted_dir}') {{ Remove-Item -Path '{extracted_dir}' -Recurse -Force }}; Expand-Archive -Path '{temp_file}' -DestinationPath '{extracted_dir}' -Force"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{extracted_dir}\\Sonamu_BookEditorOCR.exe') {{ Copy-Item -Path '{extracted_dir}\\*' -Destination '{target_dir}' -Recurse -Force }} elseif (Test-Path '{extracted_dir}\\*\\Sonamu_BookEditorOCR.exe') {{ $sub = (Get-ChildItem -Path '{extracted_dir}' -Directory)[0].FullName; Copy-Item -Path \"$sub\\*\" -Destination '{target_dir}' -Recurse -Force }} else {{ Copy-Item -Path '{extracted_dir}\\*' -Destination '{target_dir}' -Recurse -Force }}"
 
-del /f /q "{zip_path}"
+del /f /q "{temp_file}"
 rmdir /s /q "{extracted_dir}"
 
 start "" "{target_dir}\\Sonamu_BookEditorOCR.exe"
@@ -317,11 +331,8 @@ del "%~f0"
             with open(bat_path, "w", encoding="utf-8") as bf:
                 bf.write(bat_content)
 
-            # 콘솔 창 없이 백그라운드로 배치 스크립트 실행
             CREATE_NO_WINDOW = 0x08000000
             subprocess.Popen(["cmd.exe", "/c", bat_path], creationflags=CREATE_NO_WINDOW)
-
-            # 현재 실행 중인 프로그램 안전 종료 (파일 락 해제 목적)
             os._exit(0)
 
         except Exception as e:

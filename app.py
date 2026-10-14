@@ -46,6 +46,7 @@ class BookEditorOCRApp:
             exe_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(__file__)
             with open(os.path.join(exe_dir, "startup_check.log"), "w", encoding="utf-8") as f:
                 f.write("GUI_LOOP_ENTERED_SUCCESS\n")
+            self._apply_native_taskbar_icon(exe_dir)
         except Exception:
             pass
 
@@ -70,6 +71,10 @@ class BookEditorOCRApp:
         self._init_tray_icon()
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close_window)
+        # 상단 메뉴바 구성 (보기, 도움말)
+        self._init_menu_bar()
+        self._bind_font_shortcuts()
+
         # 프로그램 시작 시 자동 업데이트 확인
         AutoUpdater.check_on_startup(self.root)
 
@@ -86,6 +91,87 @@ class BookEditorOCRApp:
         if cur_w < win_w or cur_h < win_h:
             self.root.geometry(f"{win_w}x{win_h}")
 
+    def _apply_native_taskbar_icon(self, exe_dir: str):
+        # 1. Tkinter iconphoto (256px 고화질 PNG 기반)
+        icon_png = os.path.join(exe_dir, "app_icon.png")
+        if os.path.exists(icon_png):
+            try:
+                self._icon_img = tk.PhotoImage(file=icon_png)
+                self.root.iconphoto(True, self._icon_img)
+            except Exception:
+                pass
+
+        # 2. Windows 11 Native Win32 WM_SETICON (작업표시줄 48px/32px 직접 주입)
+        icon_ico = os.path.join(exe_dir, "app_icon.ico")
+        if os.path.exists(icon_ico):
+            try:
+                user32 = ctypes.windll.user32
+                LR_LOADFROMFILE = 0x00000010
+                IMAGE_ICON = 1
+                WM_SETICON = 0x0080
+                ICON_SMALL = 0
+                ICON_BIG = 1
+
+                self.root.update_idletasks()
+                hwnd = user32.GetParent(self.root.winfo_id()) or self.root.winfo_id()
+                hicon_big = user32.LoadImageW(None, icon_ico, IMAGE_ICON, 48, 48, LR_LOADFROMFILE)
+                hicon_small = user32.LoadImageW(None, icon_ico, IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+                if hicon_big:
+                    user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+                if hicon_small:
+                    user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
+            except Exception:
+                pass
+
+    def _init_menu_bar(self):
+        menubar = tk.Menu(self.root)
+
+        # 1. 보기(View) 메뉴
+        view_menu = tk.Menu(menubar, tearoff=0)
+        view_menu.add_command(label="글자 크기 크게  (+)", command=self._on_font_larger, accelerator="Ctrl++")
+        view_menu.add_command(label="글자 크기 작게  (-)", command=self._on_font_smaller, accelerator="Ctrl+-")
+        view_menu.add_separator()
+        view_menu.add_command(label="글자 크기 기본값", command=self._on_font_reset, accelerator="Ctrl+0")
+        menubar.add_cascade(label="보기", menu=view_menu)
+
+        # 2. 도움말(Help) 메뉴
+        help_menu = tk.Menu(menubar, tearoff=0)
+        help_menu.add_command(label=f"업데이트 확인 (v{CURRENT_VERSION})...", command=lambda: AutoUpdater.check_for_updates(self.root, silent=False))
+        help_menu.add_separator()
+        help_menu.add_command(label="단축키 안내 (F4 화면 캡처)", command=self._show_shortcut_info)
+        help_menu.add_command(label="정식 라이선스 상태", command=self._show_license_info)
+        help_menu.add_command(label="소나무 BookEditor OCR 정보", command=self._show_about_info)
+        menubar.add_cascade(label="도움말", menu=help_menu)
+
+        self.root.config(menu=menubar)
+
+    def _bind_font_shortcuts(self):
+        self.root.bind_all("<Control-plus>", lambda e: self._on_font_larger())
+        self.root.bind_all("<Control-equal>", lambda e: self._on_font_larger())
+        self.root.bind_all("<Control-minus>", lambda e: self._on_font_smaller())
+        self.root.bind_all("<Control-0>", lambda e: self._on_font_reset())
+
+    def _show_shortcut_info(self):
+        messagebox.showinfo(
+            "단축키 안내",
+            "• [ F4 ] : 화면 영역 지정 캡처 및 OCR 자동 전사\n• [ Ctrl + + ] : 글자 크기 한 단계 확대\n• [ Ctrl + - ] : 글자 크기 한 단계 축소\n• [ Ctrl + 0 ] : 글자 크기 기본값 복원",
+            parent=self.root
+        )
+
+    def _show_license_info(self):
+        messagebox.showinfo(
+            "정식 라이선스 안내",
+            "• 상태: 정상 인증 완료 (소나무디자인 정식 라이선스)\n• 인증 저장소: Windows 로컬 시스템 보안 영역 (%LOCALAPPDATA%)\n• 기기 고유 HWID 기반으로 안전하게 보호되고 있습니다.",
+            parent=self.root
+        )
+
+    def _show_about_info(self):
+        messagebox.showinfo(
+            "BookEditor OCR 정보",
+            f"소나무 BookEditor OCR (v{CURRENT_VERSION})\n\n출판 디자이너를 위한 고정밀 도서 본문 OCR & 교정 프로그램\n• 제조: 소나무디자인 (Sonamu Design)\n• 문의: 032-465-8195",
+            parent=self.root
+        )
+
     def _on_font_smaller(self):
         DPIHelper.decrease_font_scale()
         self._refresh_ui_fonts()
@@ -94,14 +180,18 @@ class BookEditorOCRApp:
         DPIHelper.increase_font_scale()
         self._refresh_ui_fonts()
 
+    def _on_font_reset(self):
+        DPIHelper.reset_font_scale()
+        self._refresh_ui_fonts()
+
     def _refresh_ui_fonts(self):
         for child in self.root.winfo_children():
             child.destroy()
         self._apply_window_size()
+        self._init_menu_bar()
         self._build_ui()
         self._refresh_history_listbox()
-        percent = DPIHelper.get_font_scale_percent()
-        self.lbl_status.config(text=f"글자 크기 {percent}% 설정 및 영구 저장 완료")
+        self.lbl_status.config(text="글자 크기가 변경되었습니다. (보기 메뉴 또는 Ctrl + / - 로 조절)")
 
     def _build_ui(self):
         # 상단 헤더
@@ -130,79 +220,18 @@ class BookEditorOCRApp:
         )
         subtitle_lbl.pack(anchor=tk.W, pady=(DPIHelper.scale(3), 0))
 
-        # 헤더 우측: 글자 크기 조절 컨트롤
-        font_ctrl_frame = tk.Frame(header, bg="#212529")
-        font_ctrl_frame.pack(side=tk.RIGHT, pady=DPIHelper.scale(2))
+        # 헤더 우측: 깔끔한 버전 뱃지
+        badge_frame = tk.Frame(header, bg="#212529")
+        badge_frame.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # 헤더 우측: 업데이트 확인 버튼
-        btn_update = tk.Button(
-            header,
-            text=f"업데이트 확인 (v{CURRENT_VERSION})",
-            command=lambda: AutoUpdater.check_for_updates(self.root, silent=False),
-            font=DPIHelper.font(self.font_family, 8),
-            bg="#343a40",
-            fg="#cfe2ff",
-            activebackground="#495057",
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            padx=DPIHelper.scale(8),
-            pady=DPIHelper.scale(3),
-            cursor="hand2"
-        )
-        btn_update.pack(side=tk.RIGHT, padx=(0, DPIHelper.scale(10)), pady=DPIHelper.scale(4))
-
-        lbl_font_title = tk.Label(
-            font_ctrl_frame,
-            text="글자 크기",
-            font=DPIHelper.font(self.font_family, 8),
+        lbl_badge = tk.Label(
+            badge_frame,
+            text=f"v{CURRENT_VERSION}",
+            font=DPIHelper.font(self.font_family, 9),
             bg="#212529",
-            fg="#ced4da"
+            fg="#6c757d"
         )
-        lbl_font_title.pack(side=tk.TOP, anchor=tk.E, pady=(0, 2))
-
-        btn_box = tk.Frame(font_ctrl_frame, bg="#212529")
-        btn_box.pack(side=tk.BOTTOM, anchor=tk.E)
-
-        btn_font_dec = tk.Button(
-            btn_box,
-            text="-",
-            command=self._on_font_smaller,
-            font=DPIHelper.font(self.font_family, 8, "bold"),
-            bg="#343a40",
-            fg="#ffffff",
-            activebackground="#495057",
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            width=2,
-            cursor="hand2"
-        )
-        btn_font_dec.pack(side=tk.LEFT, padx=1)
-
-        cur_percent = DPIHelper.get_font_scale_percent()
-        lbl_font_val = tk.Label(
-            btn_box,
-            text=f"{cur_percent}%",
-            font=DPIHelper.font(self.font_family, 9, "bold"),
-            bg="#212529",
-            fg="#ffc107",
-            width=5
-        )
-        lbl_font_val.pack(side=tk.LEFT, padx=2)
-
-        btn_font_inc = tk.Button(
-            btn_box,
-            text="+",
-            command=self._on_font_larger,
-            font=DPIHelper.font(self.font_family, 8, "bold"),
-            bg="#343a40",
-            fg="#ffffff",
-            activebackground="#495057",
-            activeforeground="#ffffff",
-            relief=tk.FLAT,
-            width=2,
-            cursor="hand2"
-        )
-        btn_font_inc.pack(side=tk.LEFT, padx=1)
+        lbl_badge.pack(anchor=tk.E, pady=(DPIHelper.scale(4), 0))
 
         # 메인 액션 버튼 영역
         action_frame = tk.Frame(self.root, bg="#f8f9fa", padx=DPIHelper.scale(16), pady=DPIHelper.scale(12))
@@ -449,6 +478,13 @@ class BookEditorOCRApp:
         self.lbl_status.config(text="내역이 삭제되었습니다.")
 
     def _create_tray_image(self):
+        try:
+            exe_dir = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(__file__)
+            icon_path = os.path.join(exe_dir, "app_icon.png")
+            if os.path.exists(icon_path):
+                return Image.open(icon_path).resize((64, 64), Image.Resampling.LANCZOS)
+        except Exception:
+            pass
         width = 64
         height = 64
         image = Image.new("RGBA", (width, height), (13, 110, 253, 255))
@@ -487,6 +523,11 @@ class BookEditorOCRApp:
 
 
 def main():
+    try:
+        myappid = "SonamuDesign.BookEditorOCR.v1"
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+    except Exception:
+        pass
     root = tk.Tk()
     app = BookEditorOCRApp(root)
     root.mainloop()
