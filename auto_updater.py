@@ -13,7 +13,7 @@ from tkinter import messagebox, ttk
 from dpi_helper import DPIHelper
 from usage_tracker import APP_DATA_DIR
 
-CURRENT_VERSION = "1.1.1"
+CURRENT_VERSION = "1.1.2"
 DEFAULT_CONFIG_PATH = os.path.join(APP_DATA_DIR, "update_config.json")
 LOCAL_CONFIG_PATH = os.path.join(os.getcwd(), "update_config.json")
 
@@ -169,47 +169,9 @@ class AutoUpdater:
             fg="#cfe2ff"
         ).pack(anchor=tk.W, pady=(DPIHelper.scale(4), 0))
 
-        # 본문 패치노트
-        body = tk.Frame(dlg, bg="#f8f9fa", padx=DPIHelper.scale(16), pady=DPIHelper.scale(12))
-        body.pack(fill=tk.BOTH, expand=True)
-
-        tk.Label(
-            body,
-            text="[주요 업데이트 및 패치 내역]",
-            font=DPIHelper.font("Malgun Gothic", 10, "bold"),
-            bg="#f8f9fa",
-            fg="#212529"
-        ).pack(anchor=tk.W, pady=(0, DPIHelper.scale(6)))
-
-        txt_frame = tk.Frame(body, bg="#ffffff", relief=tk.SOLID, bd=1)
-        txt_frame.pack(fill=tk.BOTH, expand=True)
-
-        txt = tk.Text(
-            txt_frame,
-            font=DPIHelper.font("Malgun Gothic", 9),
-            bg="#ffffff",
-            fg="#333333",
-            relief=tk.FLAT,
-            padx=DPIHelper.scale(8),
-            pady=DPIHelper.scale(8),
-            wrap=tk.WORD
-        )
-        txt.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        txt.insert("1.0", changelog)
-        txt.config(state=tk.DISABLED)
-
-        # 하단 안내 라벨
-        tk.Label(
-            body,
-            text="※ 업데이트 시 기존 정식 라이선스는 100% 안전하게 유지됩니다.",
-            font=DPIHelper.font("Malgun Gothic", 8),
-            bg="#f8f9fa",
-            fg="#6c757d"
-        ).pack(anchor=tk.W, pady=(DPIHelper.scale(6), 0))
-
-        # 하단 버튼 바
-        btn_row = tk.Frame(dlg, bg="#f8f9fa", padx=DPIHelper.scale(16), pady=DPIHelper.scale(12))
-        btn_row.pack(fill=tk.X)
+        # 1. 하단 버튼 바 (하단에 먼저 고정 배치하여 잘림 방지)
+        btn_row = tk.Frame(dlg, bg="#f8f9fa", padx=DPIHelper.scale(16), pady=DPIHelper.scale(14))
+        btn_row.pack(side=tk.BOTTOM, fill=tk.X)
 
         def on_start_update():
             if not download_url:
@@ -218,9 +180,11 @@ class AutoUpdater:
             dlg.destroy()
             cls._show_download_and_patch_dialog(parent, download_url, latest_ver, expected_sha256)
 
+        dlg.bind("<Return>", lambda e: on_start_update())
+
         tk.Button(
             btn_row,
-            text="지금 자동 업데이트 및 재실행",
+            text="지금 자동 업데이트 및 재실행 (Enter)",
             command=on_start_update,
             bg="#0d6efd",
             fg="#ffffff",
@@ -243,6 +207,45 @@ class AutoUpdater:
             pady=DPIHelper.scale(6),
             cursor="hand2"
         ).pack(side=tk.RIGHT)
+
+        # 2. 본문 패치노트 (남은 중앙 공간 채우기)
+        body = tk.Frame(dlg, bg="#f8f9fa", padx=DPIHelper.scale(16), pady=DPIHelper.scale(10))
+        body.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        tk.Label(
+            body,
+            text="[주요 업데이트 및 패치 내역]",
+            font=DPIHelper.font("Malgun Gothic", 10, "bold"),
+            bg="#f8f9fa",
+            fg="#212529"
+        ).pack(anchor=tk.W, pady=(0, DPIHelper.scale(6)))
+
+        txt_frame = tk.Frame(body, bg="#ffffff", relief=tk.SOLID, bd=1)
+        txt_frame.pack(fill=tk.BOTH, expand=True)
+
+        txt = tk.Text(
+            txt_frame,
+            font=DPIHelper.font("Malgun Gothic", 9),
+            bg="#ffffff",
+            fg="#333333",
+            relief=tk.FLAT,
+            padx=DPIHelper.scale(8),
+            pady=DPIHelper.scale(8),
+            wrap=tk.WORD,
+            height=7
+        )
+        txt.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        txt.insert("1.0", changelog)
+        txt.config(state=tk.DISABLED)
+
+        # 하단 안내 라벨
+        tk.Label(
+            body,
+            text="※ 업데이트 시 기존 정식 라이선스는 100% 안전하게 유지됩니다.",
+            font=DPIHelper.font("Malgun Gothic", 8),
+            bg="#f8f9fa",
+            fg="#6c757d"
+        ).pack(anchor=tk.W, pady=(DPIHelper.scale(6), 0))
 
     @classmethod
     def _show_download_and_patch_dialog(cls, parent, download_url: str, latest_ver: str, expected_sha256=""):
@@ -354,18 +357,20 @@ class AutoUpdater:
             clean_target_dir = target_dir.replace('"', '')
 
             if is_exe:
-                # 단일 EXE 교체 스크립트
+                # 단일 EXE 교체 스크립트 (PyInstaller 부트로더 _MEIPASS2 상속 차단)
                 bat_content = f"""@echo off
 chcp 65001 > nul
 echo 최신 버전 교체 적용 중... 잠시만 기다려 주십시오.
 timeout /t 2 /nobreak > nul
+set _MEIPASS2=
+set _MEIPASS=
 copy /y "{clean_temp_file}" "{clean_target_exe}"
 del /f /q "{clean_temp_file}"
 start "" "{clean_target_exe}"
 (goto) 2>nul & del "%~f0"
 """
             else:
-                # ZIP 패키지 교체 스크립트 (PowerShell 작은따옴표 이스케이프)
+                # ZIP 패키지 교체 스크립트 (PowerShell 작은따옴표 이스케이프 및 환경변수 초기화)
                 ps_extracted = extracted_dir.replace("'", "''")
                 ps_temp = clean_temp_file.replace("'", "''")
                 ps_target = clean_target_dir.replace("'", "''")
@@ -373,6 +378,8 @@ start "" "{clean_target_exe}"
 chcp 65001 > nul
 echo BookEditor OCR 업데이트 적용 중... 잠시만 기다려 주십시오.
 timeout /t 2 /nobreak > nul
+set _MEIPASS2=
+set _MEIPASS=
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{ps_extracted}') {{ Remove-Item -Path '{ps_extracted}' -Recurse -Force }}; Expand-Archive -Path '{ps_temp}' -DestinationPath '{ps_extracted}' -Force"
 
@@ -387,8 +394,12 @@ start "" "{clean_target_exe}"
             with open(bat_path, "w", encoding="utf-8") as bf:
                 bf.write(bat_content)
 
+            clean_env = os.environ.copy()
+            clean_env.pop("_MEIPASS2", None)
+            clean_env.pop("_MEIPASS", None)
+
             CREATE_NO_WINDOW = 0x08000000
-            subprocess.Popen(["cmd.exe", "/c", bat_path], creationflags=CREATE_NO_WINDOW)
+            subprocess.Popen(["cmd.exe", "/c", bat_path], env=clean_env, creationflags=CREATE_NO_WINDOW)
             os._exit(0)
 
         except Exception as e:

@@ -1,7 +1,7 @@
 {
-  "latest_version": "1.1.1",
+  "latest_version": "1.1.2",
   "release_date": "2026-10-14",
-  "changelog": "1. 1~2초 초고속 고정밀 OCR 엔진 복원 (응답 지연 병목 해결)\n2. 핵심 엔진 및 인증 모듈 C 기계어 바이너리(.pyd) 컴파일 보호 적용 (API 키 및 인증 로직 디컴파일 원천 차단)\n3. 자동 업데이트 보안 강화 (공식 GitHub 도메인 검증 및 SHA-256 무결성 검증, 스크립트 인젝션 차단)\n4. 모델 설정값 정규식 검증 및 프롬프트 인젝션 방어 격리 적용",
+  "changelog": "1. 1~2초 초고속 고정밀 OCR 엔진 복원 (응답 지연 병목 해결)\n2. 자동 재실행 스크립트 PyInstaller 환경변수 상속 차단 (재실행 오류 완벽 해결)\n3. 업데이트 알림창 하단 버튼 레이아웃 고정 및 Enter 키 단축키 지원\n4. 핵심 엔진 및 인증 모듈 C 기계어 바이너리(.pyd) 컴파일 보호 적용\n5. 자동 업데이트 보안 강화 (공식 도메인 및 SHA-256 무결성 검증, 스크립트 인젝션 차단)",
   "download_url": "https://github.com/SDhoecheol/BookEditorOCR/releases/latest/download/Sonamu_BookEditorOCR.exe",
-  "sha256": "cf0eb06b17a117ca23967bb385ed080a96362c6b9b0d5da4b9ff5aa5c89b69ab"
+  "sha256": "c74080092fbaf66909aca25928a0a587f3f358ae14976e18e7700cc84dcfe12c"
 }
