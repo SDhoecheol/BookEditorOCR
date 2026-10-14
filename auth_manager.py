@@ -176,10 +176,11 @@ class PasswordDialog(tk.Toplevel):
         lbl_footer.pack(side=tk.BOTTOM, pady=(0, DPIHelper.scale(6)))
 
     def _on_confirm(self):
+        import hmac
         entered = self.entry_pw.get().strip()
         entered_hash = hashlib.sha256(entered.encode("utf-8")).hexdigest()
 
-        if entered_hash == MASTER_PW_HASH:
+        if hmac.compare_digest(entered_hash, MASTER_PW_HASH):
             self.is_valid = True
             AuthManager.save_license()
             messagebox.showinfo("인증 성공", "인증이 완료되었습니다.", parent=self)

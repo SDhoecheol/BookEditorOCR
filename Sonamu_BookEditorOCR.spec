@@ -4,13 +4,23 @@
 a = Analysis(
     ['app.py'],
     pathex=[],
-    binaries=[],
+    binaries=[
+        ('build_pyd/gemini_engine.cp312-win_amd64.pyd', '.'),
+        ('build_pyd/auth_manager.cp312-win_amd64.pyd', '.')
+    ],
     datas=[('app_icon.ico', '.'), ('app_icon.png', '.'), ('update_config.json', '.')],
-    hiddenimports=[],
+    hiddenimports=[
+        'cryptography',
+        'cryptography.fernet',
+        'requests',
+        'urllib3',
+        'PIL',
+        'PIL.Image'
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['gemini_engine', 'auth_manager'],
     noarchive=False,
     optimize=0,
 )

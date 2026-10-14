@@ -1,6 +1,7 @@
 {
   "latest_version": "1.1.0",
   "release_date": "2026-10-14",
-  "changelog": "1. 출판 도서 특화 고정밀 OCR 엔진 최적화 및 안정성 개선\n2. 상단 메뉴바(보기, 도움말) 도입 및 폰트 크기 조절 단축키(Ctrl + / - / 0) 지원\n3. Windows 11 작업표시줄 고해상도 벡터 스타일 아이콘 적용\n4. 압축 해제 없이 바로 실행 가능한 단일 포터블 실행 파일(.exe) 지원",
-  "download_url": "https://github.com/SDhoecheol/BookEditorOCR/releases/latest/download/Sonamu_BookEditorOCR.exe"
+  "changelog": "1. 1~2초 초고속 고정밀 OCR 엔진 복원 (응답 지연 병목 해결)\n2. 핵심 엔진 및 인증 모듈 C 기계어 바이너리(.pyd) 컴파일 보호 적용 (API 키 및 인증 로직 디컴파일 원천 차단)\n3. 자동 업데이트 보안 강화 (공식 GitHub 도메인 검증 및 SHA-256 무결성 검증, 스크립트 인젝션 차단)\n4. 모델 설정값 정규식 검증 및 프롬프트 인젝션 방어 격리 적용",
+  "download_url": "https://github.com/SDhoecheol/BookEditorOCR/releases/latest/download/Sonamu_BookEditorOCR.exe",
+  "sha256": "ed608bf99eead26aa350939da1896270b31989187f1939735eab0b683cc6d5fd"
 }

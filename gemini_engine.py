@@ -30,8 +30,8 @@ def _decrypt_keys() -> list[str]:
     except Exception:
         return []
 
-API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent"
-API_URL_FALLBACK = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent"
+API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent"
+API_URL_FALLBACK = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
 
 def _get_api_urls() -> tuple[str, str]:
     """외부 model_config.json 파일이 있으면 해당 모델 우선 사용, 없으면 최신 안정화 모델 사용"""
@@ -45,7 +45,8 @@ def _get_api_urls() -> tuple[str, str]:
                 with open(p, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
                     m = cfg.get("model", "").strip()
-                    if m:
+                    import re
+                    if m and re.match(r"^[a-zA-Z0-9_.-]+$", m):
                         return f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent", API_URL_FALLBACK
             except Exception:
                 pass
@@ -138,7 +139,7 @@ class GeminiVisionEngine:
                 }
 
                 try:
-                    resp = requests.post(url, json=payload, headers=headers, timeout=25)
+                    resp = requests.post(url, json=payload, headers=headers, timeout=10)
                     if resp.status_code == 200:
                         DailyUsageTracker.increment()
                         res_json = resp.json()
@@ -166,10 +167,10 @@ class GeminiVisionEngine:
 
         prompt = (
             "당신은 출판 교정교열 전문가입니다.\n"
-            "제공된 텍스트의 오탈자, 잘못된 띄어쓰기, OCR 오인식 글자를 문맥에 맞게 정확히 교정하세요.\n"
+            "다음 <ocr_source_text> 태그 내부의 텍스트에서 오탈자, 잘못된 띄어쓰기, OCR 오인식 글자를 문맥에 맞게 정확히 교정하세요.\n"
             "화살표나 연산자 등 특수기호는 LaTeX나 영문 명령어 형태(예: \\rightarrow, \\times, $ 등)를 절대 쓰지 말고 실제 유니코드 특수문자(→, ←, ×, ÷, • 등)를 그대로 유지하세요.\n"
             "원문의 서식과 줄바꿈은 유지하고, 설명 없이 교정된 본문 텍스트만 출력하세요.\n\n"
-            f"[원문]\n{text}"
+            f"<ocr_source_text>\n{text}\n</ocr_source_text>"
         )
         payload = {
             "contents": [{
@@ -194,7 +195,7 @@ class GeminiVisionEngine:
                 }
 
                 try:
-                    resp = requests.post(url, json=payload, headers=headers, timeout=20)
+                    resp = requests.post(url, json=payload, headers=headers, timeout=10)
                     if resp.status_code == 200:
                         DailyUsageTracker.increment()
                         res_json = resp.json()

@@ -1,9 +1,12 @@
 import os
 import sys
 import json
+import uuid
+import hashlib
 import tempfile
 import threading
 import subprocess
+from urllib.parse import urlparse
 import requests
 import tkinter as tk
 from tkinter import messagebox, ttk
@@ -25,6 +28,22 @@ def get_app_dir() -> str:
 
 
 class AutoUpdater:
+    @classmethod
+    def _is_url_trusted(cls, url: str) -> bool:
+        """다운로드 URL이 신뢰할 수 있는 공식 GitHub 릴리즈 도메인인지 엄격 검증"""
+        if not url or not url.startswith("https://"):
+            return False
+        try:
+            parsed = urlparse(url)
+            host = parsed.hostname or ""
+            if host in ("github.com", "www.github.com"):
+                return parsed.path.startswith("/SDhoecheol/BookEditorOCR/releases/")
+            elif host in ("objects.githubusercontent.com", "release-assets.githubusercontent.com"):
+                return True
+            return False
+        except Exception:
+            return False
+
     @staticmethod
     def get_config() -> dict:
         for p in [LOCAL_CONFIG_PATH, DEFAULT_CONFIG_PATH]:
@@ -86,10 +105,11 @@ class AutoUpdater:
             download_url = info.get("download_url", "")
             changelog = info.get("changelog", "안정성 및 성능 개선 패치")
             release_date = info.get("release_date", "")
+            expected_sha256 = str(info.get("sha256", "")).strip().lower()
 
             if cls._is_newer(latest_ver, CURRENT_VERSION):
                 if parent:
-                    parent.after(0, lambda: cls._show_update_dialog(parent, latest_ver, release_date, changelog, download_url))
+                    parent.after(0, lambda: cls._show_update_dialog(parent, latest_ver, release_date, changelog, download_url, expected_sha256))
             else:
                 if not silent and parent:
                     parent.after(0, lambda: messagebox.showinfo(
@@ -116,7 +136,7 @@ class AutoUpdater:
             return latest != current
 
     @classmethod
-    def _show_update_dialog(cls, parent, latest_ver, release_date, changelog, download_url):
+    def _show_update_dialog(cls, parent, latest_ver, release_date, changelog, download_url, expected_sha256=""):
         dlg = tk.Toplevel(parent)
         dlg.title("소나무 BookEditor OCR - 신규 업데이트")
         w, h = DPIHelper.scale(540), DPIHelper.scale(410)
@@ -196,7 +216,7 @@ class AutoUpdater:
                 messagebox.showinfo("안내", "다운로드 링크가 설정되어 있지 않습니다.", parent=dlg)
                 return
             dlg.destroy()
-            cls._show_download_and_patch_dialog(parent, download_url, latest_ver)
+            cls._show_download_and_patch_dialog(parent, download_url, latest_ver, expected_sha256)
 
         tk.Button(
             btn_row,
@@ -225,7 +245,7 @@ class AutoUpdater:
         ).pack(side=tk.RIGHT)
 
     @classmethod
-    def _show_download_and_patch_dialog(cls, parent, download_url: str, latest_ver: str):
+    def _show_download_and_patch_dialog(cls, parent, download_url: str, latest_ver: str, expected_sha256=""):
         """다운로드 진행률 표시 및 자동 교체 패처 실행 다이얼로그"""
         dl_dlg = tk.Toplevel(parent)
         dl_dlg.title("소나무 BookEditor OCR - 업데이트 다운로드 중")
@@ -260,20 +280,32 @@ class AutoUpdater:
         # 백그라운드 다운로드 스레드
         threading.Thread(
             target=cls._download_worker,
-            args=(parent, dl_dlg, prog, lbl_status, download_url),
+            args=(parent, dl_dlg, prog, lbl_status, download_url, expected_sha256),
             daemon=True
         ).start()
 
     @classmethod
-    def _download_worker(cls, parent, dl_dlg, prog, lbl_status, download_url: str):
+    def _download_worker(cls, parent, dl_dlg, prog, lbl_status, download_url: str, expected_sha256=""):
         target_dir = get_app_dir()
         temp_dir = tempfile.gettempdir()
-        is_exe = download_url.lower().endswith(".exe") or "/releases/download/" in download_url and download_url.lower().endswith(".exe")
+
+        # 1. 신뢰할 수 있는 도메인 검증 (SSRF 및 악성 외부 URL 차단)
+        if not cls._is_url_trusted(download_url):
+            dl_dlg.after(0, lambda: messagebox.showerror(
+                "보안 오류",
+                "신뢰할 수 없는 다운로드 소스입니다.\n보안 정책에 따라 업데이트가 중단되었습니다.",
+                parent=dl_dlg
+            ))
+            dl_dlg.after(0, dl_dlg.destroy)
+            return
+
+        is_exe = download_url.lower().endswith(".exe") or ("/releases/download/" in download_url and download_url.lower().endswith(".exe"))
+        unique_token = uuid.uuid4().hex[:8]
         
         target_exe_path = sys.executable if getattr(sys, "frozen", False) else os.path.join(target_dir, "Sonamu_BookEditorOCR.exe")
-        temp_file = os.path.join(temp_dir, "Sonamu_BookEditorOCR_new.exe" if is_exe else "BookEditorOCR_update.zip")
-        extracted_dir = os.path.join(temp_dir, "BookEditorOCR_extracted")
-        bat_path = os.path.join(temp_dir, "patch_and_restart.bat")
+        temp_file = os.path.join(temp_dir, f"Sonamu_BookEditorOCR_{unique_token}.exe" if is_exe else f"BookEditorOCR_{unique_token}.zip")
+        extracted_dir = os.path.join(temp_dir, f"BookEditorOCR_extracted_{unique_token}")
+        bat_path = os.path.join(temp_dir, f"patch_and_restart_{unique_token}.bat")
 
         try:
             resp = requests.get(download_url, stream=True, timeout=30)
@@ -298,7 +330,28 @@ class AutoUpdater:
                                 lbl_status.configure(text=t)
                             ))
 
+            # 2. SHA-256 무결성 검증 (해시 정보가 제공된 경우)
+            if expected_sha256:
+                dl_dlg.after(0, lambda: lbl_status.configure(text="파일 무결성 검증 중..."))
+                hasher = hashlib.sha256()
+                with open(temp_file, "rb") as f:
+                    while c := f.read(65536):
+                        hasher.update(c)
+                actual_sha256 = hasher.hexdigest().lower()
+                if actual_sha256 != expected_sha256:
+                    if os.path.exists(temp_file):
+                        try:
+                            os.remove(temp_file)
+                        except Exception:
+                            pass
+                    raise ValueError("다운로드 파일의 SHA-256 무결성 검증에 실패했습니다. (변조 위험)")
+
             dl_dlg.after(0, lambda: lbl_status.configure(text="다운로드 완료! 최신 버전으로 교체 후 자동 재실행합니다..."))
+
+            # 안전한 경로 인젝션 방지
+            clean_temp_file = temp_file.replace('"', '')
+            clean_target_exe = target_exe_path.replace('"', '')
+            clean_target_dir = target_dir.replace('"', '')
 
             if is_exe:
                 # 단일 EXE 교체 스크립트
@@ -306,27 +359,30 @@ class AutoUpdater:
 chcp 65001 > nul
 echo 최신 버전 교체 적용 중... 잠시만 기다려 주십시오.
 timeout /t 2 /nobreak > nul
-copy /y "{temp_file}" "{target_exe_path}"
-del /f /q "{temp_file}"
-start "" "{target_exe_path}"
-del "%~f0"
+copy /y "{clean_temp_file}" "{clean_target_exe}"
+del /f /q "{clean_temp_file}"
+start "" "{clean_target_exe}"
+(goto) 2>nul & del "%~f0"
 """
             else:
-                # ZIP 패키지 교체 스크립트
+                # ZIP 패키지 교체 스크립트 (PowerShell 작은따옴표 이스케이프)
+                ps_extracted = extracted_dir.replace("'", "''")
+                ps_temp = clean_temp_file.replace("'", "''")
+                ps_target = clean_target_dir.replace("'", "''")
                 bat_content = f"""@echo off
 chcp 65001 > nul
 echo BookEditor OCR 업데이트 적용 중... 잠시만 기다려 주십시오.
 timeout /t 2 /nobreak > nul
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{extracted_dir}') {{ Remove-Item -Path '{extracted_dir}' -Recurse -Force }}; Expand-Archive -Path '{temp_file}' -DestinationPath '{extracted_dir}' -Force"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{ps_extracted}') {{ Remove-Item -Path '{ps_extracted}' -Recurse -Force }}; Expand-Archive -Path '{ps_temp}' -DestinationPath '{ps_extracted}' -Force"
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{extracted_dir}\\Sonamu_BookEditorOCR.exe') {{ Copy-Item -Path '{extracted_dir}\\*' -Destination '{target_dir}' -Recurse -Force }} elseif (Test-Path '{extracted_dir}\\*\\Sonamu_BookEditorOCR.exe') {{ $sub = (Get-ChildItem -Path '{extracted_dir}' -Directory)[0].FullName; Copy-Item -Path \"$sub\\*\" -Destination '{target_dir}' -Recurse -Force }} else {{ Copy-Item -Path '{extracted_dir}\\*' -Destination '{target_dir}' -Recurse -Force }}"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{ps_extracted}\\Sonamu_BookEditorOCR.exe') {{ Copy-Item -Path '{ps_extracted}\\*' -Destination '{ps_target}' -Recurse -Force }} elseif (Test-Path '{ps_extracted}\\*\\Sonamu_BookEditorOCR.exe') {{ $sub = (Get-ChildItem -Path '{ps_extracted}' -Directory)[0].FullName; Copy-Item -Path \"$sub\\*\" -Destination '{ps_target}' -Recurse -Force }} else {{ Copy-Item -Path '{ps_extracted}\\*' -Destination '{ps_target}' -Recurse -Force }}"
 
-del /f /q "{temp_file}"
+del /f /q "{clean_temp_file}"
 rmdir /s /q "{extracted_dir}"
 
-start "" "{target_dir}\\Sonamu_BookEditorOCR.exe"
-del "%~f0"
+start "" "{clean_target_exe}"
+(goto) 2>nul & del "%~f0"
 """
             with open(bat_path, "w", encoding="utf-8") as bf:
                 bf.write(bat_content)
@@ -336,6 +392,11 @@ del "%~f0"
             os._exit(0)
 
         except Exception as e:
+            if os.path.exists(temp_file):
+                try:
+                    os.remove(temp_file)
+                except Exception:
+                    pass
             dl_dlg.after(0, lambda: messagebox.showerror(
                 "업데이트 실패",
                 f"최신 버전 패키지를 다운로드하는 중 오류가 발생했습니다:\n{e}",
