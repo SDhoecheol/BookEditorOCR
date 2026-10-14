@@ -13,7 +13,7 @@ from tkinter import messagebox, ttk
 from dpi_helper import DPIHelper
 from usage_tracker import APP_DATA_DIR
 
-CURRENT_VERSION = "1.1.3"
+CURRENT_VERSION = "1.1.4"
 DEFAULT_CONFIG_PATH = os.path.join(APP_DATA_DIR, "update_config.json")
 LOCAL_CONFIG_PATH = os.path.join(os.getcwd(), "update_config.json")
 
@@ -357,13 +357,19 @@ class AutoUpdater:
             clean_target_dir = target_dir.replace('"', '')
 
             if is_exe:
-                # 단일 EXE 교체 스크립트 (PyInstaller 부트로더 _MEIPASS2 상속 차단)
+                # 단일 EXE 교체 스크립트 (PyInstaller 부트로더 _MEIPASS / _PYI_ 상속 완전 차단 및 RESET_ENVIRONMENT 설정)
                 bat_content = f"""@echo off
 chcp 65001 > nul
 echo 최신 버전 교체 적용 중... 잠시만 기다려 주십시오.
 timeout /t 2 /nobreak > nul
-set _MEIPASS2=
+set PYINSTALLER_RESET_ENVIRONMENT=1
 set _MEIPASS=
+set _MEIPASS2=
+set _PYI_APPLICATION_HOME_DIR=
+set _PYI_PARENT_PROCESS_LEVEL=
+set _PYI_ARCHIVE_FILE=
+set _PYI_SPLASH_IPC=
+set _PYI_LINUX_PROCESS_NAME=
 copy /y "{clean_temp_file}" "{clean_target_exe}"
 del /f /q "{clean_temp_file}"
 start "" "{clean_target_exe}"
@@ -378,8 +384,14 @@ start "" "{clean_target_exe}"
 chcp 65001 > nul
 echo BookEditor OCR 업데이트 적용 중... 잠시만 기다려 주십시오.
 timeout /t 2 /nobreak > nul
-set _MEIPASS2=
+set PYINSTALLER_RESET_ENVIRONMENT=1
 set _MEIPASS=
+set _MEIPASS2=
+set _PYI_APPLICATION_HOME_DIR=
+set _PYI_PARENT_PROCESS_LEVEL=
+set _PYI_ARCHIVE_FILE=
+set _PYI_SPLASH_IPC=
+set _PYI_LINUX_PROCESS_NAME=
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{ps_extracted}') {{ Remove-Item -Path '{ps_extracted}' -Recurse -Force }}; Expand-Archive -Path '{ps_temp}' -DestinationPath '{ps_extracted}' -Force"
 
@@ -394,9 +406,12 @@ start "" "{clean_target_exe}"
             with open(bat_path, "w", encoding="utf-8") as bf:
                 bf.write(bat_content)
 
-            clean_env = os.environ.copy()
-            clean_env.pop("_MEIPASS2", None)
-            clean_env.pop("_MEIPASS", None)
+            # PyInstaller 환경변수 및 임시 디렉터리 변수 완벽 정제 (독립적인 신규 프로세스로 실행)
+            clean_env = {
+                k: v for k, v in os.environ.items()
+                if not k.startswith("_PYI_") and not k.startswith("_MEIPASS")
+            }
+            clean_env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
 
             CREATE_NO_WINDOW = 0x08000000
             subprocess.Popen(["cmd.exe", "/c", bat_path], env=clean_env, creationflags=CREATE_NO_WINDOW)
