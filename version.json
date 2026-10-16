@@ -1,7 +1,7 @@
 {
-  "latest_version": "1.1.4",
-  "release_date": "2026-10-14",
-  "changelog": "1. 자동 업데이트 후 원클릭 재실행 환경변수 완전 정제 (부모 프로세스 보안 검증 오류 완벽 해결)\n2. PyInstaller 6.22.3 최신 부트로더 패치 적용\n3. 런타임 창 타이틀바 및 작업표시줄 아이콘 정상 반영\n4. 1~2초 초고속 고정밀 OCR 엔진 탑재 (gemini-3.1-flash-lite)",
+  "latest_version": "1.1.5",
+  "release_date": "2026-10-16",
+  "changelog": "1. 1초대 초고속 최신 비전 엔진 엔드포인트 전진 배치 (구글 서버 503 과부하 완벽 해결)\n2. 예비 백업 엔진 안정화 모델로 교체\n3. 네트워크 타임아웃 15초 상향으로 일시 지연 흡수\n4. 업데이트 후 자동 재실행을 배제하고 완료 안내창 확인 후 사용자가 직접 켜는 안전 모드로 전환",
   "download_url": "https://github.com/SDhoecheol/BookEditorOCR/releases/latest/download/Sonamu_BookEditorOCR.exe",
-  "sha256": "3e5225acf8fa629f0c544f607b17951287ea86da43593f50f6ff42582890a2dc"
+  "sha256": "b218b204dff89743c7e56943fd48ef486424d21658ae2c45b0494e7e47190a4d"
 }

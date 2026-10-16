@@ -13,7 +13,7 @@ from tkinter import messagebox, ttk
 from dpi_helper import DPIHelper
 from usage_tracker import APP_DATA_DIR
 
-CURRENT_VERSION = "1.1.4"
+CURRENT_VERSION = "1.1.5"
 DEFAULT_CONFIG_PATH = os.path.join(APP_DATA_DIR, "update_config.json")
 LOCAL_CONFIG_PATH = os.path.join(os.getcwd(), "update_config.json")
 
@@ -349,7 +349,7 @@ class AutoUpdater:
                             pass
                     raise ValueError("다운로드 파일의 SHA-256 무결성 검증에 실패했습니다. (변조 위험)")
 
-            dl_dlg.after(0, lambda: lbl_status.configure(text="다운로드 완료! 최신 버전으로 교체 후 자동 재실행합니다..."))
+            dl_dlg.after(0, lambda: lbl_status.configure(text="다운로드 완료! 최신 파일 교체 후 종료됩니다. 안내창 확인 후 다시 실행해 주십시오."))
 
             # 안전한 경로 인젝션 방지
             clean_temp_file = temp_file.replace('"', '')
@@ -357,26 +357,18 @@ class AutoUpdater:
             clean_target_dir = target_dir.replace('"', '')
 
             if is_exe:
-                # 단일 EXE 교체 스크립트 (PyInstaller 부트로더 _MEIPASS / _PYI_ 상속 완전 차단 및 RESET_ENVIRONMENT 설정)
+                # 단일 EXE 교체 스크립트 (교체 완료 안내 팝업 후 안전 종료)
                 bat_content = f"""@echo off
 chcp 65001 > nul
 echo 최신 버전 교체 적용 중... 잠시만 기다려 주십시오.
 timeout /t 2 /nobreak > nul
-set PYINSTALLER_RESET_ENVIRONMENT=1
-set _MEIPASS=
-set _MEIPASS2=
-set _PYI_APPLICATION_HOME_DIR=
-set _PYI_PARENT_PROCESS_LEVEL=
-set _PYI_ARCHIVE_FILE=
-set _PYI_SPLASH_IPC=
-set _PYI_LINUX_PROCESS_NAME=
 copy /y "{clean_temp_file}" "{clean_target_exe}"
 del /f /q "{clean_temp_file}"
-start "" "{clean_target_exe}"
+powershell -NoProfile -Command "[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; [System.Windows.Forms.MessageBox]::Show('BookEditor OCR 업데이트가 성공적으로 완료되었습니다.`n`n프로그램을 다시 실행해 주십시오.', '업데이트 완료', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)"
 (goto) 2>nul & del "%~f0"
 """
             else:
-                # ZIP 패키지 교체 스크립트 (PowerShell 작은따옴표 이스케이프 및 환경변수 초기화)
+                # ZIP 패키지 교체 스크립트 (교체 완료 안내 팝업 후 안전 종료)
                 ps_extracted = extracted_dir.replace("'", "''")
                 ps_temp = clean_temp_file.replace("'", "''")
                 ps_target = clean_target_dir.replace("'", "''")
@@ -384,14 +376,6 @@ start "" "{clean_target_exe}"
 chcp 65001 > nul
 echo BookEditor OCR 업데이트 적용 중... 잠시만 기다려 주십시오.
 timeout /t 2 /nobreak > nul
-set PYINSTALLER_RESET_ENVIRONMENT=1
-set _MEIPASS=
-set _MEIPASS2=
-set _PYI_APPLICATION_HOME_DIR=
-set _PYI_PARENT_PROCESS_LEVEL=
-set _PYI_ARCHIVE_FILE=
-set _PYI_SPLASH_IPC=
-set _PYI_LINUX_PROCESS_NAME=
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{ps_extracted}') {{ Remove-Item -Path '{ps_extracted}' -Recurse -Force }}; Expand-Archive -Path '{ps_temp}' -DestinationPath '{ps_extracted}' -Force"
 
@@ -400,21 +384,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{ps_extra
 del /f /q "{clean_temp_file}"
 rmdir /s /q "{extracted_dir}"
 
-start "" "{clean_target_exe}"
+powershell -NoProfile -Command "[System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; [System.Windows.Forms.MessageBox]::Show('BookEditor OCR 업데이트가 성공적으로 완료되었습니다.`n`n프로그램을 다시 실행해 주십시오.', '업데이트 완료', [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)"
 (goto) 2>nul & del "%~f0"
 """
             with open(bat_path, "w", encoding="utf-8") as bf:
                 bf.write(bat_content)
 
-            # PyInstaller 환경변수 및 임시 디렉터리 변수 완벽 정제 (독립적인 신규 프로세스로 실행)
-            clean_env = {
-                k: v for k, v in os.environ.items()
-                if not k.startswith("_PYI_") and not k.startswith("_MEIPASS")
-            }
-            clean_env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
-
             CREATE_NO_WINDOW = 0x08000000
-            subprocess.Popen(["cmd.exe", "/c", bat_path], env=clean_env, creationflags=CREATE_NO_WINDOW)
+            subprocess.Popen(["cmd.exe", "/c", bat_path], creationflags=CREATE_NO_WINDOW)
             os._exit(0)
 
         except Exception as e:

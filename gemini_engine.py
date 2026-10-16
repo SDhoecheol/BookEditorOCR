@@ -30,8 +30,8 @@ def _decrypt_keys() -> list[str]:
     except Exception:
         return []
 
-API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent"
-API_URL_FALLBACK = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent"
+API_URL_FALLBACK = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
 
 def _get_api_urls() -> tuple[str, str]:
     """외부 model_config.json 파일이 있으면 해당 모델 우선 사용, 없으면 최신 안정화 모델 사용"""
@@ -139,7 +139,7 @@ class GeminiVisionEngine:
                 }
 
                 try:
-                    resp = requests.post(url, json=payload, headers=headers, timeout=10)
+                    resp = requests.post(url, json=payload, headers=headers, timeout=15)
                     if resp.status_code == 200:
                         DailyUsageTracker.increment()
                         res_json = resp.json()
