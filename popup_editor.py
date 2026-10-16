@@ -30,7 +30,7 @@ class PopupEditor(tk.Toplevel):
         self.tk_preview_img = None
         self.on_history_add = on_history_add
         self.ai_engine = ai_engine
-        self.is_smart_merge = True
+        self.is_smart_merge = False
         self.is_large_font = False
 
         self.font_family = "Malgun Gothic"
@@ -58,9 +58,9 @@ class PopupEditor(tk.Toplevel):
 
         self.btn_mode = tk.Button(
             row1,
-            text="스마트 연결 (ON)",
+            text="스마트 연결 (OFF)",
             command=self._toggle_mode,
-            bg="#0d6efd",
+            bg="#6c757d",
             fg="#ffffff",
             font=btn_font,
             relief=tk.FLAT,
@@ -267,9 +267,10 @@ class PopupEditor(tk.Toplevel):
 
         if self.is_smart_merge:
             # [[단어]] 태그를 유지한 채로 스마트 줄바꿈 적용
-            text_to_render = TextCleaner.smart_merge_lines(self.raw_lines)
+            text_to_render = TextCleaner.smart_merge_lines(self.raw_text.splitlines())
         else:
-            text_to_render = "\n".join(self.raw_lines)
+            # 원본 줄바꿈과 빈 줄을 100% 온전히 보존
+            text_to_render = self.raw_text
 
         highlight_count = 0
         # [[단어]] 패턴 분할 및 순차 삽입
@@ -308,7 +309,7 @@ class PopupEditor(tk.Toplevel):
         if self.is_smart_merge:
             self.btn_mode.config(text="스마트 연결 (ON)", bg="#0d6efd")
         else:
-            self.btn_mode.config(text="줄바꿈 유지 (ON)", bg="#495057")
+            self.btn_mode.config(text="스마트 연결 (OFF)", bg="#6c757d")
         self._render_text_with_highlights()
         self._copy_to_clipboard(show_toast=True)
 

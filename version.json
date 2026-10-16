@@ -1,7 +1,7 @@
 {
-  "latest_version": "1.1.5",
+  "latest_version": "1.1.6",
   "release_date": "2026-10-16",
-  "changelog": "1. 1초대 초고속 최신 비전 엔진 엔드포인트 전진 배치 (구글 서버 503 과부하 완벽 해결)\n2. 예비 백업 엔진 안정화 모델로 교체\n3. 네트워크 타임아웃 15초 상향으로 일시 지연 흡수\n4. 업데이트 후 자동 재실행을 배제하고 완료 안내창 확인 후 사용자가 직접 켜는 안전 모드로 전환",
+  "changelog": "1. 스마트 연결 기본값 OFF 설정 (실행 시 원본 줄바꿈·빈 줄·표 서식 100% 보존)\n2. 스마트 연결 토글 규칙 개선 (불릿/단락 구분 유지, 본문 내 줄바꿈 매끄럽게 연결)\n3. 버튼 명칭 직관화 ('스마트 연결 (OFF)' 회색 ↔ '스마트 연결 (ON)' 파란색)\n4. 이미지 원본 행바꿈 및 빈 줄 충실 전사 지침 강화",
   "download_url": "https://github.com/SDhoecheol/BookEditorOCR/releases/latest/download/Sonamu_BookEditorOCR.exe",
-  "sha256": "b218b204dff89743c7e56943fd48ef486424d21658ae2c45b0494e7e47190a4d"
+  "sha256": "3acd224a8fd3a29c092d98442efc74c4d7e93d589ac8818fba94f9f6248b9061"
 }

@@ -13,7 +13,7 @@ from tkinter import messagebox, ttk
 from dpi_helper import DPIHelper
 from usage_tracker import APP_DATA_DIR
 
-CURRENT_VERSION = "1.1.5"
+CURRENT_VERSION = "1.1.6"
 DEFAULT_CONFIG_PATH = os.path.join(APP_DATA_DIR, "update_config.json")
 LOCAL_CONFIG_PATH = os.path.join(os.getcwd(), "update_config.json")
 

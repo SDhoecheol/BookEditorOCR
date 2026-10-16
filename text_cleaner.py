@@ -2,13 +2,14 @@ import re
 
 
 class TextCleaner:
-    # 불릿/항목 기호 패턴 (새 줄로 유지해야 하는 항목들)
+    # 불릿/항목 기호 패턴 (새 줄로 유지해야 하는 항목들: 특수 불릿 기호, 숫자 번호, 괄호 번호 등 뒤에 공백이 따르는 경우)
     BULLET_PATTERN = re.compile(
-        r"^([•\-\*▶▷◆◇■□○●※\u2022\u25b6\u25c0\u25cf\u25cb]|"
-        r"\d+[\.\)]|"
-        r"\([0-9a-zA-Z가-힣]+\)|"
-        r"\[[0-9a-zA-Z가-힣]+\]|"
-        r"[가-힣a-zA-Z][\.\)])\s*"
+        r"^([•\-\*▶▷◆◇■□○●※\u2022\u25b6\u25c0\u25cf\u25cb]\s*|"
+        r"\d+[\.\)]\s+|"
+        r"\(\d+\)\s*|"
+        r"\([a-zA-Z가-힣]\)\s*|"
+        r"\[\d+\]\s*|"
+        r"[가-힣a-zA-Z][\.\)]\s+)"
     )
 
     @classmethod
@@ -47,6 +48,7 @@ class TextCleaner:
     def smart_merge_lines(cls, lines: list[str]) -> str:
         """책자 편집을 위한 스마트 문장 이어붙이기.
         
+        - 빈 줄은 단락 구분(엔터 2개)으로 보존
         - 불릿 항목은 새 줄 유지
         - 마침표나 물음표/느낌표로 끝난 줄은 문단 구분
         - 문장 중간에 줄바꿈된 행들은 하나로 자연스럽게 이어붙임
@@ -54,40 +56,53 @@ class TextCleaner:
         if not lines:
             return ""
 
-        processed_lines = []
+        paragraphs = []
+        current_lines = []
+
+        # 1차: 빈 줄 기준으로 문단 블록 분리
         for line in lines:
             cleaned = cls.clean_spaces(line)
-            if cleaned:
-                processed_lines.append(cleaned)
-
-        if not processed_lines:
-            return ""
-
-        merged_blocks = []
-        current_block = processed_lines[0]
-
-        for next_line in processed_lines[1:]:
-            # 다음 줄이 불릿이나 번호 항목으로 시작하면 무조건 새 줄로 분리
-            is_next_bullet = bool(cls.BULLET_PATTERN.match(next_line))
-            
-            # 현재 줄이 문장의 끝(마침표, 물음표, 느낌표, 콜론 등)으로 끝났는지 확인
-            ends_with_sentence_punct = bool(re.search(r"[\.!?:\"]$", current_block))
-            
-            # 현재 줄이 괄호나 대괄호로 끝난 단독 타이틀/개소일 경우
-            ends_with_bracket = bool(re.search(r"[\)\]]$", current_block))
-            
-            if is_next_bullet or ends_with_sentence_punct or ends_with_bracket:
-                # 새 단락 시작
-                merged_blocks.append(current_block)
-                current_block = next_line
+            if not cleaned:
+                if current_lines:
+                    paragraphs.append(current_lines)
+                    current_lines = []
             else:
-                # 문장 중간에 줄바꿈된 경우 -> 띄어쓰기 하나로 연결
-                current_block += " " + next_line
+                current_lines.append(cleaned)
+        if current_lines:
+            paragraphs.append(current_lines)
 
-        if current_block:
-            merged_blocks.append(current_block)
+        merged_paragraphs = []
+        for p_lines in paragraphs:
+            if not p_lines:
+                continue
 
-        return "\n".join(merged_blocks)
+            merged_blocks = []
+            current_block = p_lines[0]
+
+            for next_line in p_lines[1:]:
+                # 다음 줄이 불릿이나 번호 항목으로 시작하면 무조건 새 줄로 분리
+                is_next_bullet = bool(cls.BULLET_PATTERN.match(next_line))
+                
+                # 현재 줄이 문장의 끝(마침표, 물음표, 느낌표, 콜론 등)으로 끝났는지 확인
+                ends_with_sentence_punct = bool(re.search(r"[\.!?:\"]$", current_block))
+
+                # 짧은 소제목(예: [공지사항], (참고사항) 등 단독 줄인 경우)
+                is_short_title = len(current_block) <= 15 and bool(re.search(r"[\)\]]$", current_block))
+                
+                if is_next_bullet or ends_with_sentence_punct or is_short_title:
+                    # 새 줄 시작
+                    merged_blocks.append(current_block)
+                    current_block = next_line
+                else:
+                    # 문장 중간에 줄바꿈된 경우 -> 띄어쓰기 하나로 연결
+                    current_block += " " + next_line
+
+            if current_block:
+                merged_blocks.append(current_block)
+
+            merged_paragraphs.append("\n".join(merged_blocks))
+
+        return "\n\n".join(merged_paragraphs)
 
     @classmethod
     def preserve_lines(cls, lines: list[str]) -> str:
